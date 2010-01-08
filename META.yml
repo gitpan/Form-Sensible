@@ -1,0 +1,34 @@
+---
+abstract: 'A sensible way to handle form based user interface'
+author:
+  - 'Jay Kuri - <jayk@cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0.42
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 0.91'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Form-Sensible
+no_index:
+  directory:
+    - examples
+    - inc
+    - share
+    - t
+requires:
+  Carp: 0
+  Class::MOP: 0
+  Data::Dumper: 0
+  File::Sharedir: 0
+  FindBin: 0
+  Moose: 0
+  Template: 0
+  namespace::autoclean: 0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.10000
