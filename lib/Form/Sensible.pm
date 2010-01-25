@@ -16,7 +16,7 @@ use Form::Sensible::Validator;
 use Form::Sensible::Validator::Result;
 
 
-our $VERSION = "0.10000";
+our $VERSION = "0.11000";
 
 ## This module is a simple factory class which will load and create the various
 ## types of modules required when working with Form::Sensible
@@ -133,41 +133,23 @@ others.)
 =head2 FEATURES
 
 =over 8
-=item *
+=item * Easy form creation
 
-Easy form creation
+=item * Easy form validation
 
-=item *
+=item * Ability to easily save created forms for future use
 
-Easy form validation
+=item * Define form once, render any number of ways
 
-=item *
+=item * Flexible built-in form validator
 
-Ability to easily save created forms for future use
+=item * Easily extended to produce new renderers, field types and validation
 
-=item *
+=item * HTML renderer produces sane html that can be easily styled via CSS
 
-Define form once, render any number of ways
+=item * HTML renderer allows for custom templates to control all aspects of form rendering.
 
-=item *
-
-Flexible built-in form validator
-
-=item *
-
-Easily extended to produce new renderers, field types and validation
-
-=item *
-
-HTML renderer produces sane html that can be easily styled via CSS
-
-=item *
-
-HTML renderer allows for custom templates to control all aspects of form rendering.
-
-=item *
-
-HTML output not tied to any javascript library.
+=item * HTML output not tied to any javascript library.
 
 =back
 
@@ -180,17 +162,11 @@ The Form::Sensible form lifecycle works as follows:
 
 =over 8
 
-=item 1.
+=item 1. Create form object
 
-Create form object
+=item 2. Create or get a renderer
 
-=item 2.
-
-Create or get a renderer
-
-=item 3.
-
-Use renderer to render form
+=item 3. Use renderer to render form
 
 =back
 
@@ -198,21 +174,13 @@ Use renderer to render form
 
 =over 8
 
-=item 1. 
+=item 1. Create form object
 
-Create form object
+=item 2. Retrieve user input and place it into form 
 
-=item 2. 
+=item 3. Validate form
 
-Retrieve user input and place it into form 
-
-=item 3.
-
-Validate form
-
-=item 4.
-
-If form data is invalid, re-render the form with messages
+=item 4. If form data is invalid, re-render the form with messages
 
 =back
 
@@ -240,7 +208,11 @@ provides for dynamic creation and processing of forms.
                                                              {
                                                                  field_class => 'Text',
                                                                  name => 'password',
-                                                                 render_hints => { field_type => 'password' }
+                                                                 render_hints => { 
+                                                                        'HTML' => {
+                                                                                    field_type => 'password' 
+                                                                                  }
+                                                                        },
                                                              },
                                                              {
                                                                  field_class => 'Trigger',
@@ -267,7 +239,11 @@ a simple (and all too familiar) login form.
 
     my $password_field = Form::Sensible::Field::Text->new(  
                                                             name=>'password',
-                                                            render_hints => { field_type => 'password' } 
+                                                            render_hints => { 
+                                                                                'HTML' => {
+                                                                                            field_type => 'password' 
+                                                                                          },
+                                                                            },
                                                          );
     $form->add_field($password_field);
 
