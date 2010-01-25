@@ -19,6 +19,7 @@ lib/Form/Sensible/Field/Text.pm
 lib/Form/Sensible/Field/Toggle.pm
 lib/Form/Sensible/Field/Trigger.pm
 lib/Form/Sensible/Form.pm
+lib/Form/Sensible/Reflector.pm
 lib/Form/Sensible/Renderer.pm
 lib/Form/Sensible/Renderer/HTML.pm
 lib/Form/Sensible/Renderer/HTML/RenderedForm.pm
