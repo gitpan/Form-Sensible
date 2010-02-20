@@ -1,5 +1,9 @@
 Revision history for Form::Sensible
 
+0.11102 2010-02-19
+
+    * fixed File::ShareDir capitalization in Makefile.PL
+
 0.11101 2010-02-19
 
     * dropped dump_basic.t as it uses deprecated Renderer::Dump
