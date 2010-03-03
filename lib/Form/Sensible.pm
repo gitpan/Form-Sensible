@@ -16,13 +16,13 @@ use Form::Sensible::Validator;
 use Form::Sensible::Validator::Result;
 
 
-our $VERSION = "0.11202";
+our $VERSION = "0.11210";
 
 ## This module is a simple factory class which will load and create the various
 ## types of modules required when working with Form::Sensible
 
 sub create_form {
-    my ($class, $template) = @_;
+    my ($class, $template, $values) = @_;
     
     my $formhash = { %{$template} };
     delete($formhash->{'fields'});
@@ -315,9 +315,10 @@ the same convention for class name passing as the get_renderer method.
 =back
 
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 Jay Kuri - E<lt>jayk@cpan.orgE<gt>
+Luke Saunders - E<lt>luke.saunders@gmail.comE<gt>
 
 =head1 SPONSORED BY
 
