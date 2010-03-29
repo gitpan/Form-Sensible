@@ -4,6 +4,7 @@ author:
   - 'Jay Kuri - <jayk@cpan.org>'
 build_requires:
   ExtUtils::MakeMaker: 6.42
+  HTML::Tree: 3.23
   Test::More: 0.42
 configure_requires:
   ExtUtils::MakeMaker: 6.42
@@ -31,4 +32,4 @@ requires:
   namespace::autoclean: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.11210
+version: 0.11211
