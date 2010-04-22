@@ -7,29 +7,16 @@ extends 'Form::Sensible::Field';
 ## provides a select field - potentially with multiple selections
 ## this could be a dropdown box or a radio-select group
 
-has 'accepts_multiple' => (
-    is          => 'rw',
-    isa         => 'Bool',
-    required    => 1,
-    default     => 0,
-);
-
 has 'options' => (
     is          => 'rw',
     isa         => 'ArrayRef',
     required    => 1,
     default     => sub { return [] },
     lazy        => 1,
-    writer      => 'set_options',
-    reader      => '_options'
 );
 
 has 'value' => (
     is          => 'rw',
-    isa         => 'ArrayRef',
-    required    => 1,
-    default     => sub { return []; },
-    lazy        => 1,
 );
 
 
@@ -77,23 +64,22 @@ sub get_additional_configuration {
     
     return { 
                 'accepts_multiple' => $self->accepts_multiple,
-                'options' => $self->_options,
-                'display_names' => $self->display_names,
+                'options' => $self->options,
            };
 
-}
-
-sub options {
-    my ($self, $filter) = @_;
-    
-    return [ grep /$filter/,  @{$self->_options} ]; 
 }
 
 sub validate {
     my ($self) = @_;
     
+    my $values;
+    if (ref($self->value) eq 'ARRAY') {
+        $values = $self->value;
+    } else {
+        $values = [ $self->value ];
+    }
 
-    foreach my $value (@{$self->value}) {
+    foreach my $value (@{$values}) {
         my $valid = 0;
         foreach my $option (@{$self->options}) {
             if ($value eq $option->{'value'}) {

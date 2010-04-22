@@ -65,5 +65,6 @@ t/simple_form.t
 t/test_output.t
 t/validation_testing.t
 t/fields/text.t
+t/fields/select.t
 TODO
 Changes
