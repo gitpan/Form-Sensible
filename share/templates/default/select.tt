@@ -14,7 +14,7 @@
                 [% total_field_count = total_field_count + 1 %]
                 [%- selected = "" -%]
                 [%- FOREACH val = field.value -%]
-                    [%- IF item.value == val %][% selected = " selected" %][% END -%]
+                    [%- IF item.value == val %][% selected = ' checked="checked"' %][% END -%]
                 [%- END -%]
                 <div class="[% css_prefix -%]checkbox [% css_prefix -%][% field_name %]_checkbox">
                 [% IF render_hints.checkbox_align && (render_hints.checkbox_align == 'right') %]
