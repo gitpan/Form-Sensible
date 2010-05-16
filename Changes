@@ -1,5 +1,10 @@
 Revision history for Form::Sensible
 
+0.11222 2010-05-15
+
+    * Corrected an error in the message templates of HTML renderer that
+      prevented status messages from showing up.
+
 0.11221 2010-05-07
 
     * Corrected an error in select field rendering that would cause 
