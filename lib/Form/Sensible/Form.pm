@@ -2,7 +2,10 @@ package Form::Sensible::Form;
 
 use Moose; 
 use namespace::autoclean;
+use Form::Sensible::DelegateConnection;
+use Form::Sensible::Validator;
 use Carp qw/croak/;
+use Data::Dumper;
 use Class::MOP;    ## I don't believe this is required
 
 ## a form is a collection of fields. Different form types will work differently.
@@ -46,7 +49,6 @@ has 'field_order' => (
     lazy        => 1,
 );
 
-
 has 'renderer' => (
     is          => 'rw',
     isa         => 'Form::Sensible::Renderer',
@@ -60,13 +62,18 @@ has 'render_hints' => (
     lazy        => 1,
 );
 
-has 'validator' => (
+## validation hints - FULL form validation
+## runs _after_ field validation.
+has 'validation' => (
     is          => 'rw',
-    isa         => 'Form::Sensible::Validator',
+    isa         => 'HashRef',
+    required    => 1,
+    default     => sub { return {}; },
     lazy        => 1,
-    builder     => '_create_validator'
 );
 
+## DEPRECATION WARNING.  validator_args is deprecated, as is validator_result and validator
+## all of these are replaced via the validation_delegate. DUE FOR REMOVAL 2010-08-30
 has 'validator_args' => (
     is          => 'rw',
     isa         => 'ArrayRef',
@@ -82,48 +89,49 @@ has 'validator_result' => (
     clearer     => '_clear_validator_result',
 );
 
-## validation hints - FULL form validation
-## runs _after_ field validation.
-has 'validation' => (
+has 'validator' => (
     is          => 'rw',
-    isa         => 'HashRef',
-    required    => 1,
-    default     => sub { return {}; },
+    isa         => 'Form::Sensible::Validator',
     lazy        => 1,
+    builder     => '_create_validator'
 );
 
-
-
-## actions provide a simple event model - actions can
-## be created on a form that cause certain things to happen
-## action names are free-form and the values associated with them
-## are arrayrefs of code refs.  The internally used triggers are:
-##
-## form_completed   - defaults to calling validation routines
-## form_cancelled   - defaults to doing nothing
-## validation_passed - validation succeeded
-## validation_failed - validation failed
-
-has 'actions' => (
+## calling format:  ($form, $fieldname) returns true/false whether the field should be processed.
+has 'should_process_field_delegate' => (
     is          => 'rw',
-    isa         => 'HashRef',
+    isa         => 'Form::Sensible::DelegateConnection',
     required    => 1,
-    default     => sub { return {}; },
+    default     => sub {
+                            return FSConnector(sub { return 1; });
+                   },
     lazy        => 1,
+    coerce      => 1,
+    # additional options
 );
 
+has 'validation_delegate' => (
+    is          => 'rw',
+    isa         => 'Form::Sensible::DelegateConnection',
+    required    => 1,
+    default     => sub {
+                            my $self = shift;
+                            my $validator;
+                            if (defined($self->validation->{'validator_class'})) {
+                                $validator = $self->_create_validator();
+                            } else {
+                                $validator = Form::Sensible::Validator->new();
+                            }
 
-sub BUILD {
-    my ($self) = @_;
-    
-    # set up default behavior for actions - 
-    # currently only 'form_completed' has a default action - 
-    # that is to call validate.
-    $self->add_action('form_completed', sub { 
-                                                my $object = shift; 
-                                                $object->validate();
-                                            });
-}
+                            return FSConnector( sub { 
+                                                my $caller = shift;
+                                                
+                                                return $validator->validate($caller);
+                                   });
+                   },
+    lazy        => 1,
+    coerce      => 1,
+    # additional options
+);
 
 ## adds a field to the form.  If position is specified, places it at the
 ## given position, otherwise places it at the end of the form.  
@@ -210,51 +218,34 @@ sub field {
     return $self->_fields->{$fieldname};
 }
 
-## returns a hash containing all the fields in the current form
+## returns a hash containing all the fields in the current form 
+## fields is DEPRECATED.  DO NOT USE IT.
 sub fields {
     my $self = shift;
     
     return { %{$self->_fields} };
 }
 
+## Returns an array of all the fields in the form in field_order 
+## obeying should_process_field_delegate.
+sub get_fields {
+    my $self = shift;
+    
+    my @active_fields;
+    foreach my $fieldname (@{$self->field_order}) {
+        if ($self->should_process_field_delegate->($self, $fieldname)) {
+            push @active_fields, $self->field($fieldname);
+        }
+    }
+    return @active_fields;   
+}
+
+
 ## returns the fieldnames in the current form in their presentation order
 sub fieldnames {
     my $self = shift;
     
     return @{$self->field_order};
-}
-
-
-
-## add an action for the given 
-sub add_action {
-    my ($self, $event_name, $action) = @_;
-    
-    if (ref($action) ne 'CODE') {
-        croak "add action called but action is not a CODE ref";
-    }
-    if (!exists($self->actions->{$event_name})) {
-        $self->actions->{$event_name} = [];
-    }
-    push @{$self->actions->{$event_name}}, $action;
-}
-
-sub remove_action {
-    my ($self, $event_name, $action_to_remove) = @_;
-    
-    my @new_actions;
-    foreach my $action (@{$self->actions->{$event_name}}) {
-        if ($action ne $action_to_remove) {
-            push @new_actions, $action;
-        }
-    }
-    $self->actions->{$event_name} = \@new_actions;
-}
-
-sub clear_actions {
-    my ($self, $event_name) = @_;
-    
-    $self->actions->{$event_name} = [];
 }
 
 sub _create_validator {
@@ -282,19 +273,17 @@ sub _create_validator {
     return $validator;
 }
 
-## validation_results() are set automatically if validate is run from the form.
-## otherwise it is not set.
 
 sub validate {
     my ($self) = @_;
 
-    if ($self->validator) {
-        my $results = $self->validator->validate($self);
-        $self->validator_result($results);
-        return $self->validator_result();
-    } else {
-        croak 'Failure attempting to load validator';
-    }
+    my $result = $self->validation_delegate->($self);
+    
+    ## for now - validation_results() are set automatically if validate is run from the form.
+    ## this is deprecated and will be removed.  DUE FOR REMOVAL 2010-07-30
+    $self->validator_result($result);
+    
+    return $result;
 }
 
 sub render {
@@ -334,8 +323,43 @@ sub clear_state {
         $self->field($fieldname)->clear_state();
     }
     
+    ## DUE FOR REMOVAL 2010-07-30
     $self->_clear_validator_result();
 }
+
+sub delegate_all_field_values {
+    my $self = shift;
+    my $value_delegate = shift;
+
+    foreach my $field ($self->get_fields()) {
+        $field->value_delegate( $value_delegate );
+    }
+}
+
+sub delegate_all_field_values_to_hashref {
+    my $self = shift;
+    my $hashref = shift;
+    
+    # We only need one value delegate object because it gets the name from the field's name.
+    # So we save a bit of memory by not creating a separate delegate object for each field
+    my $value_delegate = FSConnector( sub { 
+                              my $caller = shift;
+                              my $fieldname = $caller->name();
+
+                              if ($#_ > -1) {   
+                                  if (ref($_[0]) eq 'ARRAY' && !($caller->accepts_multiple)) {
+                                      $hashref->{$fieldname} = $_[0]->[0];
+                                  } else {
+                                      $hashref->{$fieldname} = $_[0];
+                                  }
+                              }
+                              return $hashref->{$fieldname}; 
+                          });
+    
+    $self->delegate_all_field_values($value_delegate);
+}
+
+
 
 sub flatten {
     my ($self, $template_only) = @_;
@@ -418,15 +442,6 @@ supports a single key, C<code> which provides a coderef to run to validate the
 form. When run, the form, and a prepared C<Form::Sensible::Validator::Result>
 object are passed to the subroutine call.
 
-=item C<validator_args>
-
-Hashref containing arguments to the validator class to be used when a validator object is created 'on demand'.
-
-=item C<renderer>
-
-The renderer object associated with this form, if any.  May be set to enable 
-the C<< $form->render() >> shortcut.
-
 =back
 
 I<The following attributes are set during normal operating of the Form object, and do not
@@ -442,15 +457,28 @@ order that they should be presented. While this may be set manually, it's
 generally preferred to use the C<add_field> and C<reorder_field> to set field
 order.
 
-=item C<validator>
+=back
 
-The validator object associated with this form, if any.  May be set manually to 
-override the default C<< $form->validate() >> behavior.
+=head1 DELEGATES
 
-=item C<validator_result>
+Delegates are objects that help determine certain behaviors.  These delegates
+allow control over form behavior without subclassing.  See L<Form::Sensible::DelegateConnection> for
+more information.
 
-Contains a C<Form::Sensible::Validator::Result> object if this form has had
-it's C<validate()> method called. 
+=over 8
+
+=item should_process_field_delegate->($self, $fieldname)  
+
+Returns true/false on whether the field should be included in general form processing.  Default
+behavior is to always return true, hence indicating all fields present should be processed. 
+This is used when C<<$form->get_fields()>> is called.  It essentially gives you a 
+mechanism for disabling rendering and validation of particular fields on demand.  
+
+=item validation_delegate->($self)  
+
+Runs validation on the form.  Returns a L<Form::Sensible::Validator::Result> object representing the results
+of the validation process.  If not provided and C<<$form->validate()>> is run, a L<Form::Sensible::Validator> 
+object will be created.
 
 =back
 
@@ -461,6 +489,19 @@ it's C<validate()> method called.
 =item C<new( %options )>
 
 Creates a new Form object with the provided options.  All the attributes above may be passed.
+
+=item C<delegate_all_field_values( $delegate_connection )>
+
+Loops over all fields in the form and delegates their values to the provided C<$delegate_connection>
+
+=item C<delegate_all_field_values_to_hashref( $hashref )>
+
+Loops over all fields in the form and delegates their values to the given hashref using the
+field's name as the key. Note that this will capture the hashref provided within a closure. If your 
+form / field objects are likely to outlive your hashref, such as in the case of a persistent form object
+used within a Catalyst Request it is recommended that you instead delegate the values to an 
+intermediate object that can obtain the values for the current request
+
 
 =item C<add_field( $field, $fieldname, $position )>
 
@@ -485,11 +526,15 @@ other fields positions are adjusted accordingly.
 
 =item C<field( $fieldname )>
 
-Returns the field object identified by $fieldname.
+Returns the field object identified by $fieldname. 
 
-=item C<fields()>
+=item C<get_fields()>
 
-Returns a hash containing all the fields in the current form.  
+Returns an array containing all the fields in the current form in field order.  
+Affected by C<should_process_field_delegate>. If C<should_process_field_delegate> returns
+false for a given field, it will be excluded from the results of C<get_fields()>.  
+B<NOTE:> When performing any action on all fields in a form, you should use this method 
+to ensure that any fields that should not be processed are excluded. 
 
 =item C<fieldnames()>
 
@@ -514,18 +559,9 @@ prior to having any values set or validation run.
 =item C< validate() >
 
 Validates the form based on the validation rules provided for each field during form 
-creation.  Delegates it's work to the C<validator> object set for this form.  If no
-C<validator> object is set, a new C<Form::Sensible::Validator> will be created.
-
-=item C<render( @options )>
-
-Renders the current form using the C<renderer> object set for this form. Since
-different renderers require different options, the C< @options > are specific
-to the renderer and are passed as-is to the renderer's C<render()> method.
-Returns a rendered form handle object. I< B<Note> that rendered form handle objects
-are specific in type and behavior to the renderer being used, please refer to
-the renderer's documentation for the proper way to use the rendered form
-object.>
+creation.  Delegates it's work via the C<validation_delegate> set for this form.  If no
+C<validation_delegate> object is set, a new C<Form::Sensible::Validator> will be created and
+attached as appropriate.
 
 =item C<flatten( $template_only )>
 
@@ -536,6 +572,41 @@ then only the structure of the form is saved and no values or other state will
 be included in the returned hashref.
 
 =back
+
+=head2 DEPRECATED
+
+These method calls have been deprecated and will be removed.  They
+exist here only to help make sense of existing code... and to warn you 
+they are being removed.
+
+=over 8
+
+=item C<fields()>  (DEPRECATED 2010-06-13 - To be removed 2010-08-30)
+
+Returns an hashref containing all the fields in the current form
+
+=item C<validator> (DEPRECATED 2010-06-13 - To be removed 2010-08-30)
+
+The validator object associated with this form, if any. 
+
+=item C<validator_result> (DEPRECATED 2010-06-13 - To be removed 2010-08-30)
+
+Contains a C<Form::Sensible::Validator::Result> object if this form has had
+it's C<validate()> method called. 
+
+=item C<validator_args> (DEPRECATED 2010-06-13 - To be removed 2010-08-30)
+
+Hashref containing arguments to the validator class to be used when a validator object is created 'on demand'.
+
+=item C<renderer> (DEPRECATED 2010-06-13 - To be removed 2010-08-30)
+
+The renderer object associated with this form, if any.  
+
+=item C<render( @options )> (DEPRECATED 2010-06-13 - To be removed 2010-08-30)
+
+Renders the current form using the C<renderer> object set for this form.
+
+=back 
 
 =head1 AUTHOR
 

@@ -1,10 +1,12 @@
 package Form::Sensible::Field;
 
-use Moose; 
+use Moose;
 use namespace::autoclean;
 use Carp;
 use Data::Dumper;
 use Class::MOP;
+use Form::Sensible::DelegateConnection;
+
 
 has 'name' => (
     is          => 'rw',
@@ -39,7 +41,7 @@ has 'field_type' => (
 #    default     => 0,
 #);
 
-## validation is args to the validator that will be used
+## validation contains args to the validator that will be used
 ## by default, the hashref can contain 'regex' - a ref to a 
 ## regex.  or 'code' - a code ref.  If both are present, 
 ## the regex will be checked first, then if that succeeds
@@ -67,12 +69,30 @@ has 'render_hints' => (
     lazy        => 1,
 );
 
-# values are of indeterminate type generally.
-has 'value' => (
+has 'value_delegate' => (
     is          => 'rw',
-    clearer     => '_clear_value',
-    builder     => '_default_value',
+    isa         => 'Form::Sensible::DelegateConnection',
+    required    => 1,
+    default     => sub {
+                            my $self = shift;
+                            my $value = $self->default_value;
+                            my $sub =  sub { 
+                                                      my $caller = shift;
+                                                    
+                                                      if ($#_ > -1) {   
+                                                          if (ref($_[0]) eq 'ARRAY' && !($caller->accepts_multiple)) {
+                                                              $value = $_[0]->[0];
+                                                          } else {
+                                                              $value = $_[0];
+                                                          }
+                                                      }
+                                                      return $value; 
+                                                  };
+                            return FSConnector($sub);
+                   },
     lazy        => 1,
+    coerce      => 1,
+    # additional options
 );
 
 has 'accepts_multiple' => (
@@ -82,9 +102,42 @@ has 'accepts_multiple' => (
     default     => 0,
 );
 
+has 'editable' => (
+    is          => 'rw',
+    isa         => 'Bool',
+    required    => 1,
+    default     => 1,
+);
+
+## calling format:  ($field, $value) return an arrayref containing error messages if invalid or false (scalar) if valid
+## it may be help to think of it as asking the delegate 'is this invalid' 
+has 'validation_delegate' => (
+    is          => 'rw',
+    isa         => 'Form::Sensible::DelegateConnection',
+    required    => 1,
+    default     => sub {
+                            return FSConnector(sub { return 0; });
+                   },
+    lazy        => 1,
+    coerce      => 1,
+    # additional options
+);
+
 has 'default_value' => (
     is          => 'rw',
 );
+
+sub BUILD {
+      my $self = shift;
+      my $args = shift;
+      
+      # this deals with the 'value' placed in the constructor, which doesn't work anymore
+      # because a Field's value is not an attribute, it is delegated.
+
+      if (defined($args->{'value'})) {
+          $self->value($args->{'value'});
+      }
+}
 
 sub _default_value {
     my $self = shift;
@@ -132,7 +185,9 @@ sub flatten {
     } else {
         $class = '+' . $class;
     }
+    
     $config{'field_class'} = $class;
+    
     if (!$template_only) {
         $config{'value'} = $self->value;
     }
@@ -166,31 +221,18 @@ sub get_additional_configuration {
 }
 
 ## built-in field specific validation.  Regex and code validation run first.
+## by default just calls the validation_delegate.
 sub validate {
     my ($self) = @_;
     
-    return 0;
+    return $self->validation_delegate->($self, $self->value);
 }
 
-## deals with an arrayref being passed to a field that only accepts
-## a single value
-around 'value' => sub {
-    my $orig = shift;
+sub value {
     my $self = shift;
-
-    return $self->$orig()
-        unless @_;
     
-    my $provided_value = shift;
-    
-    ## if we got an array, but our field is not an 'accepts_multiple' field
-    ## we ignore all but the first value.  
-    if (ref($provided_value) eq 'ARRAY' && !($self->accepts_multiple)) {
-        return $self->$orig($provided_value->[0]);
-    } else {
-        return $self->$orig($provided_value);
-    }
-};
+    return $self->value_delegate->($self,@_);
+}
 
 ## restores a flattened field structure.
 sub create_from_flattened {
@@ -219,7 +261,7 @@ sub create_from_flattened {
 sub clear_state {
     my $self = shift;
     
-    $self->_clear_value();
+    $self->value(undef);
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -379,6 +421,31 @@ is returned.
 Helper function to C<flatten()>, used by subclasses to add additional information specific to 
 the subclass type into in the flattened hash structure.  Should return a hashref to be merged 
 into the flattened field hash.
+
+=back
+
+=head1 DELEGATES
+
+=over 8
+
+=item value_delegate->($self, [optional value])
+
+The C<value_delegate> is called to get or set the value for this field.  
+The first argument is the Field object itself, which will be the only
+parameter if it is called as a getter.  If called as a setter, an 
+additional value argument will be passed.  In both scenarios, the 
+delegate should return the field's (new) value.  
+
+=item validation_delegate->($self, $value)
+
+The C<validation_delegate> is called to validate the value given for the field.
+As with all delegates, the first argument is the field itself, the second argument
+is the value to be validated.  The delegate is expected to return an arrayref containing
+error messages if invalid, or false (scalar) if valid.  It may be help to think of 
+it as the field asking the delegate 'is this invalid.'  
+
+Note that each field type may have it's own validation rules which will be performed 
+before the C<validation_delegate> is called.  
 
 =back
 

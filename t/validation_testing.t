@@ -13,7 +13,7 @@ $lib_dir = join('/', @dirs);
 
 
 
-$form = Form::Sensible->create_form( {
+my $form = Form::Sensible->create_form( {
                                             name => 'test',
                                             fields => [
                                                          { 
@@ -47,7 +47,7 @@ $form = Form::Sensible->create_form( {
                                                                                             if ($value == 172) {
                                                                                                 return "We don't like 172.";
                                                                                             } else {
-                                                                                                return 0;
+                                                                                                return undef;
                                                                                             }
                                                                                         }
                                                                          }

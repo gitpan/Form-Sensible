@@ -1,6 +1,7 @@
 package Form::Sensible::Validator::Result;
 
 use Moose; 
+use Data::Dumper;
 use namespace::autoclean;
 
 has 'error_fields' => (
@@ -150,6 +151,21 @@ sub error {
     }
 }
 
+sub messages_for {
+    my ($self, $fieldname) = @_;
+    
+    my @messages;
+    if (exists($self->error_fields->{$fieldname})) {
+        push @messages, @{$self->error_fields->{$fieldname}};
+    }
+    if (exists($self->missing_fields->{$fieldname})) {
+         push @messages, @{$self->missing_fields->{$fieldname}};
+    }
+    
+    return @messages;
+    
+}
+
 __PACKAGE__->meta->make_immutable;
 1;
 
@@ -246,6 +262,11 @@ If no fieldname is provided, returns an array of fieldnames that were invalid in
 
 If C<$fieldname> is provided, returns true if the field provided was either missing or invalid, false otherwise.
 If no fieldname is provided, returns an array of fieldnames that were either missing or invalid in the form.
+
+=item C<message_for($fieldname)>
+
+Returns all the error messages (including errors and missing notifications) for the fieldname provided. 
+Returns an empty array if there are no errors on the given field.
 
 =back
 

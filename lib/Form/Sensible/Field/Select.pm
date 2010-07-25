@@ -2,10 +2,14 @@ package Form::Sensible::Field::Select;
 
 use Moose; 
 use namespace::autoclean;
+use Form::Sensible::DelegateConnection;
+
 extends 'Form::Sensible::Field';
 
 ## provides a select field - potentially with multiple selections
 ## this could be a dropdown box or a radio-select group
+
+
 
 has 'options' => (
     is          => 'rw',
@@ -15,31 +19,65 @@ has 'options' => (
     lazy        => 1,
 );
 
-has 'value' => (
+has 'options_delegate' => (
     is          => 'rw',
+    isa         => 'Form::Sensible::DelegateConnection',
+    required    => 1,
+    default     => sub {
+                            my $self = shift;
+                            my $obj = $self;
+                            
+                            return FSConnector( sub { return $obj->options } );
+                   },
+    lazy        => 1,
+    coerce      => 1,
+    # additional options
+);
+
+has 'values_ok_delegate' => (
+    is          => 'rw',
+    isa         => 'Form::Sensible::DelegateConnection',
+    required    => 1,
+    default     => sub {
+                            my $self = shift;
+                            my $obj = $self;
+                            return FSConnector( sub {
+                                my $caller = shift;
+                                my $values = shift;
+                                
+                                my @errors;
+                                foreach my $value (@{$values}) {
+                                    my $valid = 0;
+                                    foreach my $option (@{$caller->get_options}) {
+                                        if ($value eq $option->{'value'}) {
+                                            $valid = 1;
+                                            last;
+                                        }
+                                    }
+                                    if (!$valid) {
+                                        if (exists($caller->validation->{'invalid_message'})) {
+                                            push @errors, $caller->validation->{'invalid_message'};
+                                        } else {
+                                            push @errors, "_FIELDNAME was set to an invalid value";            
+                                        }
+                                    }
+                                }
+                                return @errors;
+                            });
+                   },
+    lazy        => 1,
+    coerce      => 1,
+    # additional options
 );
 
 
-# overcomplicated.
-#around 'value' => sub {
-#    my ($self, $orig) = @_;
-#    
-#    return $self->$orig() unless @_;
-#    
-#    if ($#_ > 0) {
-#        $self->$orig([ @_ ]);
-#    } else {
-#        my $val = shift;
-#        my $original_value = $self->$orig();
-#        if (ref($val) eq 'ARRAY') {
-#            $self->$orig($val);
-#        } else {
-#            push @{$self->$orig()}, $val;
-#        }
-#    }
-#};
-
-
+sub get_additional_configuration {
+    my ($self) = @_;
+    
+    return { 
+                'options' => $self->options,
+           };    
+}
 
 sub set_selection {
     my ($self) = shift;
@@ -59,18 +97,15 @@ sub add_option {
                                value => $value };
 }
 
-sub get_additional_configuration {
-    my $self = shift;
+sub get_options {
+    my ($self) = shift;
     
-    return { 
-                'accepts_multiple' => $self->accepts_multiple,
-                'options' => $self->options,
-           };
-
+    $self->options_delegate->($self, @_);
 }
 
-sub validate {
-    my ($self) = @_;
+around 'validate' => sub {
+    my $orig = shift;
+    my $self = shift;
     
     my $values;
     if (ref($self->value) eq 'ARRAY') {
@@ -78,25 +113,9 @@ sub validate {
     } else {
         $values = [ $self->value ];
     }
-
-    foreach my $value (@{$values}) {
-        my $valid = 0;
-        foreach my $option (@{$self->options}) {
-            if ($value eq $option->{'value'}) {
-                $valid = 1;
-                last;
-            }
-        }
-        if (!$valid) {
-            if (exists($self->validation->{'invalid_message'})) {
-                return $self->validation->{'invalid_message'};
-            } else {
-                return $self->display_name . " was set to an invalid value";            
-            }
-        }
-    }
-    return 0;
-}
+    my @errors = $self->values_ok_delegate->($self, $values);
+    return @errors;
+};
 
 __PACKAGE__->meta->make_immutable;
 1;
@@ -136,10 +155,6 @@ even if only a single option was selected.
 
 =over 8
 
-=item C<options> 
-
-An array ref containing the allowed options. Each option is represented as a
-hash containing a C<name> element and a C<value> element for the given option.
 
 =item C<accepts_multiple>
 
@@ -151,6 +166,11 @@ Does this field allow multiple options to be selected.  Defaults to false.
 
 =over 8
 
+=item C<get_options()> 
+
+Returns an array ref containing the allowed options. Each option is represented as a
+hash containing a C<name> element and a C<value> element for the given option.
+
 =item C<set_selection($selected_option,...)> 
 
 Set's the provided option values as selected.  If C<accepts_multiple> is 
@@ -159,10 +179,34 @@ false, only the first item will be set as selected.
 
 =item C<add_option($option_value, $option_display_name)>
 
-Adds the provided value and display name to the set of options that can
-be selected for this field.
+If no C<options_delegate> was provided - Adds the provided value and display name to the set of options that can
+be selected for this field.  If an options_delegate I<IS> provided, has no effect whatsoever.
 
 =back
+
+=head1 DELEGATES
+
+=over 8
+
+=item options_delegate->($self)
+
+The C<options_delegate> is called to obtain the valid options for this field.
+Is expected to return an array ref of options. Each option should be a hash
+entry with a C<name> key and a C<value> key. If no C<options_delegate> is
+provided, defaults to delegating to itself, using internal storage of options
+(using the C<add_option> mechanism outlined above)
+
+=item values_ok_delegate->($self, $values_arrayref)
+
+The C<values_ok_delegate> is called to validate the values selected for the
+field. It is passed an arrayref containing the selected values and should
+return an array of error messages if any of the values are invalid, or undef
+otherwise. If no C<values_ok_delegate> is provided, the default delegate
+simply loops over the options returned by the C<options_delegate> and checks
+each value provided in turn. If retrieving options is an expensive operation
+(say pulling from a DB table) it is often less expensive to check the specific
+values provided rather than pulling back all options and then comparing them.
+This delegate action provides for that possibility.
 
 =head1 AUTHOR
 

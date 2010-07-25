@@ -12,8 +12,18 @@ has 'include_paths' => (
     isa         => 'ArrayRef[Str]',
     required    => 1,
     lazy        => 1,
-    default     => sub { my $self = shift; return [ File::ShareDir::dist_dir('Form-Sensible') . '/templates/' . $self->base_theme . '/' ]; },
+    builder     => '_build_include_path',
 );
+
+has 'additional_include_paths' => (
+    is        => 'rw',
+    isa       => 'ArrayRef[Str]',
+    required  => 1,
+    lazy      => 1,
+    default   => sub { return []; },
+    # additional options
+);
+
 
 has 'base_theme' => (
     is          => 'rw',
@@ -30,11 +40,21 @@ has 'tt_config' => (
     default     => sub {
                               my $self = shift;
                               return {
-                                      INCLUDE_PATH => $self->include_paths()
+                                      INCLUDE_PATH => $self->complete_include_path(),
+                                      WRAPPER => 'pre_process.tt'
                               }; 
                          },
     lazy        => 1,
 );
+
+has 'fs_template_dir' => (
+    is          => 'rw',
+    isa         => 'Str',
+    required    => 1,
+    default     => sub { File::ShareDir::dist_dir('Form-Sensible') . '/templates' },
+    lazy        => 1,
+);
+
 
 ## if template is provided, it will be re-used.  
 ## otherwise, a new one is generated for each form render.
@@ -98,8 +118,8 @@ sub render {
     ## take care of any subforms we have in this form.
     my $subform_init_hash = { %args };
     $args{'subform_renderers'} = {};
-    foreach my $fieldname (@{$form->field_order}) {
-        my $field = $form->field($fieldname);
+    foreach my $field ($form->get_fields()) {
+        my $fieldname = $field->name();
         if ($field->isa('Form::Sensible::Field::SubForm')) {
             $subform_init_hash->{'form'} = $field->form;
             #print "FOO!! $fieldname\n";
@@ -117,6 +137,33 @@ sub render {
     my $rendered_form = Form::Sensible::Renderer::HTML::RenderedForm->new( %args );
     
     return $rendered_form;
+}
+
+sub _build_include_path {
+    my $self = shift;
+    
+    my $path = [];
+    if ($self->base_theme ne 'default') {
+        push @{$path}, $self->path_to_theme();
+    }
+    push @{$path}, $self->path_to_theme('default');
+    return $path;
+}
+
+sub complete_include_path {
+    my $self = shift;
+    
+    return [ @{$self->additional_include_paths}, @{$self->include_paths()} ];
+}
+
+sub path_to_theme {
+    my ($self, $theme) = @_;
+    
+    if (!$theme) {
+        $theme = $self->base_theme;
+    }
+    
+    return $self->fs_template_dir . '/' . $theme;
 }
 
 # create a new Template instance with the provided options. 
@@ -157,18 +204,50 @@ L<Form::Sensible::Renderer::HTML::RenderedForm|Form::Sensible::Renderer::HTML::R
 The L<Template> object used by this renderer.  You can provide your own by setting this attribute.
 If you do not set it, a new Template object is created using the parameter below.
 
+=item C<additional_include_paths> 
+
+If you want to search outside the templates distributed with C<Form::Sensible>
+for field or form templates, you can add additional paths as an arrayref here.
+This is useful if you want to override the some of the templates for your
+fields or forms.
+
+This allows you to override just the elements you need to in your own theme,
+with all others being sourced from the Form::Sensible distribution ( IE provided
+theme and default theme ) Note that unless configured otherwise, if a template
+not found in the theme you selected, the C<default> theme will be searched as
+well. 
+
+
 =item C<include_paths>
 
-An arrayref containing the filesystem paths to search for field templates.
+An arrayref containing the filesystem paths to search for Form::Sensible's
+field templates. This defaults to including your base theme (if provided) and
+then the default theme:
+
+    $self->include_paths([ 
+                            $self->path_to_theme($self->base_theme),
+                            $self->path_to_theme('default');
+                        ]);
+
+In most cases, you should not touch C<include_paths>, it is provided only for
+the case where Form::Sensible is not able to determine the location of it's
+templates on the filesystem. If you wish to add additional template paths, use
+the C<additional_include_paths> instead. Note also that care should be taken
+overriding C<include_paths> because this fallback behavior is based only on
+the include path order.
 
 =item C<base_theme>
 
-The theme to use for form rendering.  Defaults to C<default>, currently 
-the only theme distributed with Form::Sensible.
+The theme to use for form rendering.  Defaults to C<default>, default 
+uses C<< <div> >>'s for layout.  There is also 'table' which uses HTML 
+tables for form layout.
 
 =item C<tt_config>
 
-The config used when creating a new Template object.
+The config used when creating a new Template object. If you set this manually,
+you will need to be sure to set the Template's C<INCLUDE_PATH> yourself or rendering
+will be unable to find any field templates.  You can obtain the include path that 
+would have been used by calling C<< $self->complete_include_path() >>
 
 =item C<default_options>
 
@@ -187,6 +266,16 @@ Returns a L<RenderedForm|Form::Sensible::Renderer::HTML::RenderedForm> for the f
 =item C<new_template()>
 
 Returns a new L<Template|Template> object created using the C<tt_config> attribute.
+
+=item C<path_to_theme($theme)>
+
+Returns the filesystem path to the theme provided.  If no C<$theme> is passed, it will
+provide the path to the C<base_theme> for the renderer object.
+
+=item C<complete_include_path()>
+
+Returns the complete calculated include paths to be passed to the Template object taking
+into account both the C<include_paths> as well as C<additional_include_paths>.
 
 =back
 

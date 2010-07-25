@@ -32,4 +32,4 @@ requires:
   namespace::autoclean: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.11211
+version: 0.12001

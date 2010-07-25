@@ -1,5 +1,24 @@
 Revision history for Form::Sensible
 
+0.20001 2010-07-25
+
+    * Reduce redundancy in templates by revamping HTML templates to include just field input elements and a wrapper 
+    * Set HTML template fallback order so that missing files in the current theme fall-back to default theme
+    * Major release mainly related to the addition of delegation to Form::Sensible
+    * Add delegation of field values
+    * Add delegation of select field options
+    * Added ability to set fields as not editable
+    * TONS of documentation
+    * slight addition to Reflector to add a submit button automatically
+    * error message preparation delegation in validation (for localization, etc.)
+    * BEHAVIOR CHANGE: HTML Renderer now sets the CSS id of the form element to 'fs_' + formname + '_form' this was 
+      previously used on the enclosing div.  Now the CSS id of the enclosing div is now 'fs_' + formname + '_form_div'  
+    * BEHAVIOR CHANGE: Field validate() routines are expected to return an array containing errors 
+      or undef on 'passing validation' 
+    * DEPRECATION NOTICE: Form::Sensible::Form's 'fields' method Deprecated.  
+      use 'get_fields' instead
+    
+    
 0.11222 2010-05-15
 
     * Corrected an error in the message templates of HTML renderer that
@@ -11,14 +30,19 @@ Revision history for Form::Sensible
       selects rendered as checkboxes to not render existing values 
       properly
 
+
 0.11220 2010-04-21
 
     * Moved 'accepts_multiple' into the base field class along with
       adjustment to ignore multiple values when accept_multiple is false.
     * Corrected a number of bugs in the select field that were introduced
       who knows when.
-    * Added basic Select test
-    
+    * Added basic Select test     
+
+0.11212 2010-03-29
+
+    * Added message_for() call to Validator::Results to easily retrieve 
+      all the error messages for the given field
 
 0.11211 2010-03-28
 
