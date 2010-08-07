@@ -58,7 +58,7 @@ has 'values_ok_delegate' => (
                                         if (exists($caller->validation->{'invalid_message'})) {
                                             push @errors, $caller->validation->{'invalid_message'};
                                         } else {
-                                            push @errors, "_FIELDNAME was set to an invalid value";            
+                                            push @errors, "_FIELDNAME_ was set to an invalid value";            
                                         }
                                     }
                                 }

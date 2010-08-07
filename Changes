@@ -1,5 +1,10 @@
 Revision history for Form::Sensible
 
+0.20002 2010-08-06
+    * Correct typo in Select that causes generic error messages to appear wrong.
+    * Add some things to the FAQ
+
+
 0.20001 2010-07-25
 
     * Reduce redundancy in templates by revamping HTML templates to include just field input elements and a wrapper 
