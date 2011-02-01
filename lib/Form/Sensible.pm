@@ -16,7 +16,7 @@ use Form::Sensible::Validator;
 use Form::Sensible::Validator::Result;
 use Form::Sensible::DelegateConnection;
 
-our $VERSION = "0.20011";
+our $VERSION = "0.20012";
 
 Moose::Exporter->setup_import_methods(
       also     => [ 'Form::Sensible::DelegateConnection' ]  
@@ -338,7 +338,10 @@ the same convention for class name passing as the get_renderer method.
 =head1 AUTHORS
 
 Jay Kuri - E<lt>jayk@cpan.orgE<gt>
+
 Luke Saunders - E<lt>luke.saunders@gmail.comE<gt>
+
+Devin Austin - E<lt>dhoss@cpan.orgE<gt>
 
 =head1 SPONSORED BY
 
