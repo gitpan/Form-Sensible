@@ -3,12 +3,13 @@ abstract: 'A sensible way to handle form based user interface'
 author:
   - 'Jay Kuri - <jayk@cpan.org>'
 build_requires:
-  ExtUtils::MakeMaker: 6.42
+  ExtUtils::MakeMaker: 6.36
   Test::More: 0.42
 configure_requires:
-  ExtUtils::MakeMaker: 6.42
+  ExtUtils::MakeMaker: 6.36
 distribution_type: module
-generated_by: 'Module::Install version 0.91'
+dynamic_config: 1
+generated_by: 'Module::Install version 1.04'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -24,6 +25,9 @@ requires:
   Carp: 0
   Class::MOP: 0
   Data::Dumper: 0
+  DateTime: 0
+  DateTime::Format::Natural: 0
+  DateTime::Set: 0
   File::ShareDir: 0
   FindBin: 0
   Moose: 0
@@ -31,4 +35,4 @@ requires:
   namespace::autoclean: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.20012
+version: 0.20020
