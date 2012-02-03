@@ -2,9 +2,10 @@ use strict;
 use warnings;
 use Test::More;
 use Form::Sensible;
-use FindBin;
-use lib "$FindBin::Bin/../lib";
+#use FindBin;
+#use lib "$FindBin::Bin/../lib";
 use lib "t/lib";
+use lib "../lib";
 use MockReflector;
 use Data::Dumper;
 

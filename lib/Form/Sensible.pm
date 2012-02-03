@@ -17,7 +17,7 @@ use Form::Sensible::Validator;
 use Form::Sensible::Validator::Result;
 use Form::Sensible::DelegateConnection;
 
-our $VERSION = "0.20020";
+our $VERSION = "0.20021";
 
 Moose::Exporter->setup_import_methods(
       also     => [ 'Form::Sensible::DelegateConnection' ]  
