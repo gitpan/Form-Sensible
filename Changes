@@ -1,5 +1,8 @@
 Revision history for Form::Sensible
 
+0.20023 2012-02-05
+        * restore removed version from Reflector.pm
+        
 0.20022 2012-02-05
         * Update MANIFEST to include missing files
         
