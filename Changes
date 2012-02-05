@@ -1,5 +1,8 @@
 Revision history for Form::Sensible
 
+0.20022 2012-02-05
+        * Update MANIFEST to include missing files
+        
 0.20021 2012-02-03
         * Fix broken use lib for reflector base test
 
